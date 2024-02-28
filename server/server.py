@@ -3,7 +3,7 @@ import jinja2
 
 import time
 
-import misfits_kath
+# import misfits_kath
 import scipy.interpolate as sp_int
 
 import numpy as np
@@ -24,7 +24,7 @@ def seissol_command(run_id="", ranks=4):
     if gpu_available():
         return f"not supported yet for nonlinear seissol"
     else:
-        return f"mpiexec.hydra -n {ranks} -machinefile $HQ_NODE_FILE apptainer run ../seissol.sif SeisSol_Release_dskx_3_damaged-elastic {run_id}/parameters.par"
+        return f"mpiexec.hydra -n {ranks} -machinefile $HQ_NODE_FILE apptainer run ../seissol.sif SeisSol_Release_dskx_4_viscoelastic2 {run_id}/parameters_40s.par"
 
 
 class SeisSol(umbridge.Model):
@@ -35,7 +35,7 @@ class SeisSol(umbridge.Model):
         super().__init__("forward")
 
     def get_input_sizes(self, config):
-        return [4]
+        return [1]
 
     def get_output_sizes(self, config):
         return [100]
@@ -53,22 +53,19 @@ class SeisSol(umbridge.Model):
         subprocess.run(["rm", "-rf", run_id])
         subprocess.run(["mkdir", run_id])
         environment = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-        mat_template = environment.get_template("Nepal_material_template.yaml")
+        mat_template = environment.get_template("Ridgecrest_material_cvms1000m_template.yaml")
         mat_content = mat_template.render(
-            par1_gammaR=parameters[0][0],
-            par2_Cd=parameters[0][1],
-            par3_mu0=parameters[0][2],
-            par4_lamb0=parameters[0][3]
+            plastScale=parameters[0][0]
         )
-        with open(os.path.join(run_id, "Nepal_material_chain.yaml"), "w+") as mat_file:
+        with open(os.path.join(run_id, "Ridgecrest_material_cvms1000m_chain.yaml"), "w+") as mat_file:
             mat_file.write(mat_content)
 
-        parameter_template = environment.get_template("parameters_template.par")
+        parameter_template = environment.get_template("parameters_40s_template.par")
         parameter_content = parameter_template.render(
             output_dir=run_id,
             mesh_file=config["meshFile"]
         )
-        with open(os.path.join(run_id, "parameters.par"), "w+") as parameter_file:
+        with open(os.path.join(run_id, "parameters_40s.par"), "w+") as parameter_file:
             parameter_file.write(parameter_content)
 
         return run_id
@@ -87,7 +84,7 @@ class SeisSol(umbridge.Model):
 
     def __call__(self, parameters, config):
         if not config["meshFile"]:
-            config["meshFile"] = "model_0p1Hz"
+            config["meshFile"] = "Ridgecrest_NewModel1_f200_topo1000_noRef_xml_UBC"
         run_id = self.prepare_filesystem(parameters, config)
 
         # time.sleep(self._sleep_time)
@@ -96,29 +93,40 @@ class SeisSol(umbridge.Model):
         print(command)
         my_env = self.prepare_env()
         sys.stdout.flush()
-        subprocess.run("cat $HQ_NODE_FILE", shell=True)
         print("reached the part for launching seissol....")
+        subprocess.run("cat $HQ_NODE_FILE", shell=True)
         result = subprocess.run(command, shell=True, env=my_env)
         print("passed the part for launching seissol....")
         result.check_returncode()
 
-        n_recs = [1,2,7,16,18,19,20,21,22,23,24,44,48,49,50,51,57,59,61,64]
+        # Postprocessing to get moment rate
 
-        m_alphas = [misfits_kath.misfit(run_id, "output", "M7.8FL34_0.1Hztopo5km_o3ga5e2c1e1_o3jan18_50s", i) for i in n_recs]
+        data = pd.read_csv(os.path.join(run_id, "ridgecrest-energy.csv"),sep=',')
 
-        n_timeSeries = 74
+        idMoment, = np.where(data["variable"] == "seismic_moment")
 
-        m_timeSeries = misfits_kath.read_receiver(\
-            misfits_kath.find_receiver(run_id, "M7.8FL34_0.1Hztopo5km_o3ga5e2c1e1_o3jan18_50s", n_timeSeries))
+        time = data["time"][idMoment]
+        dt = time.iloc[1] - time.iloc[0]
+        print("dt = ",dt)
+        moment_d = data["measurement"][idMoment]
+        mrate_data = np.gradient(moment_d,dt)
 
-        times = np.linspace(6.0,49.999,80)
+        times_interp = np.linspace(0.001,39.999,80)
 
-        interpolator = sp_int.interp1d(m_timeSeries["Time"], m_timeSeries['v3'])
+        interpolator = sp_int.interp1d(time.values, mrate_data)
 
-        v_interpolated = interpolator(times)
+        mD_interpolated = interpolator(times_interp)
 
-        print(np.append(m_alphas,v_interpolated))
-        return np.append(m_alphas,v_interpolated)
+        ## Reference
+
+        ref = np.load("./MT1_Moment_rate_array.npy")
+
+        interpolatorRef = sp_int.interp1d(ref[:,0], ref[:,1])
+
+        mR_interpolated = interpolator(times_interp)
+
+        print(mD_interpolated - mR_interpolated)
+        return mD_interpolated - mR_interpolated
 
     def supports_evaluate(self):
         return True
