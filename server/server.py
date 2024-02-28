@@ -57,7 +57,7 @@ class SeisSol(umbridge.Model):
         mat_content = mat_template.render(
             plastScale=parameters[0][0]
         )
-        with open(os.path.join(run_id, "Ridgecrest_material_cvms1000m_chain.yaml"), "w+") as mat_file:
+        with open(os.path.join(run_id, "Ridgecrest_material_cvms1000m.yaml"), "w+") as mat_file:
             mat_file.write(mat_content)
 
         parameter_template = environment.get_template("parameters_40s_template.par")
@@ -119,7 +119,7 @@ class SeisSol(umbridge.Model):
 
         ## Reference
 
-        ref = np.load("./MT1_Moment_rate_array.npy")
+        ref = np.load(os.path.join(run_id, "MT1_Moment_rate_array.npy"))
 
         interpolatorRef = sp_int.interp1d(ref[:,0], ref[:,1])
 

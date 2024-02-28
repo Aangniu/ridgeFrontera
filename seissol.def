@@ -85,7 +85,7 @@ git clone -b zihua/Ridgecrest https://github.com/SeisSol/SeisSol.git
 cd SeisSol && git submodule update --init
 for o in 4; do
   mkdir -p build_cpu && cd build_cpu
-  CC=mpicc CXX=mpicxx cmake .. -DCMAKE_PREFIX_PATH=/home/tools -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DASAGI=ON -DNETCDF=ON -DORDER=${o} -DEQUATIONS="viscoelastic2" -DHOST_ARCH=skx -DCMAKE_BUILD_TYPE=Release -DPRECISION=double
+  CC=mpicc CXX=mpicxx cmake .. -DCMAKE_PREFIX_PATH=/home/tools -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DASAGI=ON -DNETCDF=ON -DORDER=${o} -DNUMBER_OF_MECHANISMS=3 -DEQUATIONS="viscoelastic2" -DHOST_ARCH=skx -DCMAKE_BUILD_TYPE=Release -DPRECISION=double
   make -j$(nproc) && cp SeisSol* /home/tools/bin
   cd ..
 done
