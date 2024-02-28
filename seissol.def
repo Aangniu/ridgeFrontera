@@ -1,0 +1,94 @@
+Bootstrap: localimage
+#From: cuda.sif
+From: mpi.sif
+Stage: build
+
+%post
+ldconfig
+mkdir -p /home/tools
+DEBIAN_FRONTEND=noninteractive
+export PATH=/home/tools/bin:$PATH
+export PKG_CONFIG_PATH=/home/tools/lib/pkgconfig:$PKG_CONFIG_PATH
+cd /tmp
+
+echo "Build HDF5"
+wget --progress=bar:force:noscroll https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
+tar -xf hdf5-1.10.11.tar.bz2 && cd hdf5-1.10.11
+CFLAGS="-fPIC" CC=mpicc FC=mpif90 ./configure --enable-parallel --with-zlib --disable-shared --enable-fortran --prefix=/home/tools/
+make -j$(nproc) && make install && cd /tmp
+
+echo "Build NetCDF"
+wget --progress=bar:force:noscroll https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.9.2.tar.gz
+tar -xf v4.9.2.tar.gz && cd netcdf-c-4.9.2
+CFLAGS="-fPIC" CC=/home/tools/bin/h5pcc ./configure --enable-shared=no --disable-dap --disable-libxml2 --disable-byterange --prefix=/home/tools
+make -j$(nproc) && make install && cd /tmp
+
+echo "Build parMETIS"
+wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
+tar -xvf parmetis-4.0.3.tar.gz && cd parmetis-4.0.3
+sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g' ./metis/include/metis.h
+CC=mpicc CXX=mpicxx make config prefix=/home/tools
+make -j$(nproc) && make install
+cp build/Linux-x86_64/libmetis/libmetis.a /home/tools/lib
+cp metis/include/metis.h /home/tools/include && cd /tmp
+
+echo "Build Eigen"
+wget --progress=bar:force:noscroll https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+tar -xf eigen-3.4.0.tar.gz && cd eigen-3.4.0
+mkdir -p build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/home/tools
+make -j$(nproc) install && cd /tmp
+
+echo "Build libxsmm"
+git clone https://github.com/hfp/libxsmm.git
+cd libxsmm && git checkout 1.16.1
+make -j$(nproc) generator
+cp bin/libxsmm_gemm_generator /home/tools/bin && cd /tmp
+
+echo "Build ASAGI"
+git clone https://github.com/TUM-I5/ASAGI.git
+cd ASAGI && git submodule update --init
+mkdir build && cd build
+CC=mpicc CXX=mpicxx cmake .. -DCMAKE_INSTALL_PREFIX=/home/tools -DSHARED_LIB=off -DSTATIC_LIB=on -DNONUMA=on -DCMAKE_PREFIX_PATH=/home/tools
+make -j$(nproc) && make install && cd /tmp
+
+echo "Build ImpalaJIT"
+git clone https://github.com/uphoffc/ImpalaJIT.git
+cd ImpalaJIT && mkdir build && cd build
+CXXFLAGS="-fPIE" cmake .. -DCMAKE_INSTALL_PREFIX=/home/tools && make -j $(nproc) install && cd /tmp
+
+echo "Build LUA"
+wget --progress=bar:force:noscroll https://www.lua.org/ftp/lua-5.3.6.tar.gz
+tar -xzvf lua-5.3.6.tar.gz && cd lua-5.3.6
+make linux CC=mpicc && make local
+cp -r install/* /home/tools && cd .. && cd /tmp
+
+echo "Build easi"
+git clone https://github.com/SeisSol/easi
+cd easi && mkdir build && cd build
+CC=mpicc CXX=mpicxx cmake .. -DEASICUBE=OFF -DLUA=ON -DCMAKE_PREFIX_PATH=/home/tools -DCMAKE_INSTALL_PREFIX=/home/tools -DASAGI=ON -DIMPALAJIT=ON ..
+make -j$(nproc) && make install && cd /tmp
+
+echo "Install GEMMForge"
+pip install --user git+https://github.com/SeisSol/gemmforge.git
+pip install --user git+https://github.com/SeisSol/chainforge.git
+
+ls -la /home/tools/bin
+ls -la /home/tools/lib
+ls -la /home/tools/include
+
+echo "Build SeisSol"
+export NETCDF_DIR=/home/tools
+export PARMETIS_DIR=/home/tools
+
+cd /home/tools
+git clone -b damaged-material-nonlinear-drB https://github.com/SeisSol/SeisSol.git
+cd SeisSol && git submodule update --init
+for o in 3; do
+  mkdir -p build_cpu && cd build_cpu
+  CC=mpicc CXX=mpicxx cmake .. -DCMAKE_PREFIX_PATH=/home/tools -DGEMM_TOOLS_LIST=LIBXSMM -DASAGI=ON -DNETCDF=ON -DORDER=${o} -DEQUATIONS="damaged-elastic" -DHOST_ARCH=skx -DCMAKE_BUILD_TYPE=Release -DPRECISION=double
+  make -j$(nproc) && cp SeisSol* /home/tools/bin
+  cd ..
+done
+
+%environment
+  export PATH=/home/tools/bin:$PATH

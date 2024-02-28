@@ -1,0 +1,73 @@
+Bootstrap: docker
+From: nvidia/cuda:12.3.0-devel-ubuntu22.04
+Stage: build
+
+%post
+DEBIAN_FRONTEND=noninteractive
+
+apt-get update \
+&& apt-get install -y \
+autoconf \
+autotools-dev \
+cmake \
+g++ \
+gcc \
+gfortran \
+git \
+gnupg \
+libnuma-dev \
+libnuma1 \
+libomp-dev \
+libreadline-dev \
+libtool \
+libyaml-cpp-dev \
+lsb-release \
+make \
+pkg-config \
+python3 \
+python3-numpy \
+python3-pip \
+software-properties-common \
+vim \
+wget \
+wget \
+&& rm -rf /var/lib/apt/lists/*
+
+mkdir -p /home/tools/src
+export PATH=/home/tools/bin:$PATH
+cd /home/tools/src
+
+ls -la 
+
+git clone --depth 1 --branch llvmorg-17.0.6 https://github.com/llvm/llvm-project.git 
+mkdir -p llvm-project/build && cd llvm-project/build
+CC=/usr/bin/gcc CXX=/usr/bin/g++ cmake ../llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;openmp" -DGCC_INSTALL_PREFIX=/usr -DLLVM_BUILD_LLVM_DYLIB=ON
+make -j $(nproc) && make install && cd /home/tools/src
+
+wget --progress=bar:force:noscroll https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.tar.bz2
+tar -xf ./boost_1_83_0.tar.bz2 && cd boost_1_83_0
+./bootstrap.sh --with-toolset=gcc --with-libraries=serialization,wave,date_time,iostreams,locale,math,random,context,regex,program_options,atomic,timer,log,fiber,chrono,thread,exception,system,test,graph,filesystem
+echo "using gcc : : /usr/bin/g++-11 ;" > user-config.jam
+./b2 --clean
+./b2 install threading=multi variant=release toolset=gcc link=shared cxxflags="-std=c++17" visibility=hidden address-model=64 architecture=x86 -j $(nproc) --user-config="user-config.jam" && cd /home/tools/src
+
+git clone https://github.com/KhronosGroup/SPIRV-Tools.git
+cd SPIRV-Tools && python3 utils/git-sync-deps
+mkdir build && cd build
+cmake .. && make -j $(nproc) && make install && cd /home/tools/src
+
+git clone --depth 1 --branch v23.10.0 https://github.com/AdaptiveCPP/AdaptiveCPP
+cd AdaptiveCPP
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE:String=Release -DWITH_CPU_BACKEND:Bool=True -DWITH_ROCM_BACKEND:Bool=False -DWITH_CUDA_BACKEND:Bool=TRUE -DLLVM_DIR:String=/usr/local/lib -DCLANG_INCLUDE_PATH:String=usr/local/include/clang -DCLANG_EXECUTABLE_PATH:String=/usr/local/bin/clang++ -DBOOST_ROOT:String=/usr -DCUDA_TOOLKIT_ROOT_DIR:String=/usr/local/cuda
+make -j $(nproc) && make install && cd /home/tools/src
+
+wget --progress=bar:force:noscroll https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.bz2
+tar -xf ./openmpi-4.1.6.tar.bz2 && cd ./openmpi-4.1.6
+mkdir ./build && cd ./build
+../configure --with-memory-manager=none --enable-static=yes --enable-shared --enable-mpirun-prefix-by-default --with-cuda=/usr/local/cuda
+make -j $(nproc) && make install && cd /home/tools/src
+
+ldconfig
+
+rm -rf /home/tools/src

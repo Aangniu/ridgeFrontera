@@ -1,0 +1,24 @@
+Bootstrap: localimage
+From: seissol.sif
+Stage: build
+
+%post
+  DEBIAN_FRONTEND="noninteractive"
+  apt-get update
+  apt-get install -y python3-pip
+  pip install umbridge numpy scipy pandas jinja2 mpi4py
+
+%files
+./server/server.py /home/tools/bin/server.py
+./server/misfits_kath.py /home/tools/bin/misfits_kath.py
+
+%environment
+  export PATH=/home/tools/bin:$PATH
+  export OMP_PLACES="cores(54)"
+  export OMP_NUM_THREADS=54
+
+%startscript
+  python3 /home/tools/bin/server.py
+
+%runscript
+  python3 /home/tools/bin/server.py
