@@ -119,7 +119,7 @@ class SeisSol(umbridge.Model):
 
         ## Reference
 
-        ref = np.load(os.path.join(run_id, "MT1_Moment_rate_array.npy"))
+        ref = np.load(os.path.join("ref", "MT1_Moment_rate_array.npy"))
 
         interpolatorRef = sp_int.interp1d(ref[:,0], ref[:,1])
 
