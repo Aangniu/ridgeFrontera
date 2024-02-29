@@ -20,12 +20,12 @@ if __name__ == "__main__":
                         time.sleep(10)
 
         def eval_um_model(Cd):
-                config = {"meshFile": "model_0p1Hz"}
-                return model([[500, Cd, 28518750000, 24637500000]], config)
+                config = {"meshFile": "Ridgecrest_NewModel1_f200_topo1000_noRef_xml_UBC"}
+                return model([[Cd]], config)
 
         start_time = time.time()
         with mp.Pool(10) as p:
-                result = p.map(eval_um_model, [5,10,20])
+                result = p.map(eval_um_model, [1,0.5,10])
                 print(result)
         end_time = time.time()
         print(end_time - start_time)
