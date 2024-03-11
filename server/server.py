@@ -12,6 +12,7 @@ import subprocess
 import sys
 import umbridge
 
+import pandas as pd
 
 def gpu_available():
     # Hard coded for now, until I find a better way to automatically check,
@@ -24,7 +25,9 @@ def seissol_command(run_id="", ranks=4):
     if gpu_available():
         return f"not supported yet for nonlinear seissol"
     else:
-        return f"mpiexec.hydra -n {ranks} -machinefile $HQ_NODE_FILE apptainer run ../seissol.sif SeisSol_Release_dskx_4_viscoelastic2 {run_id}/parameters_40s.par"
+        return f"mpirun -n {ranks} -machinefile $HQ_NODE_FILE /scratch1/09840/zniu2025/seisRidge/SeisSol/build_app/SeisSol_Release_dskx_4_viscoelastic2 {run_id}/par
+ameters_40s.par"
+        #return f"mpiexec.hydra -n {ranks} -machinefile $HQ_NODE_FILE apptainer run ../seissol.sif SeisSol_Release_dskx_4_viscoelastic2 {run_id}/parameters_40s.par"
 
 
 class SeisSol(umbridge.Model):
@@ -38,7 +41,7 @@ class SeisSol(umbridge.Model):
         return [1]
 
     def get_output_sizes(self, config):
-        return [100]
+        return [80]
 
     def prepare_filesystem(self, parameters, config):
         param_conf_string = str((parameters, config)).encode("utf-8")
@@ -80,6 +83,7 @@ class SeisSol(umbridge.Model):
         my_env["TACC_AFFINITY_ENABLED"] = "1"
         my_env["OMP_NUM_THREADS"] = "54"
         my_env["OMP_PLACES"] = "cores(54)"
+        my_env["I_MPI_SHM_HEAP_VSIZE"] = "65536"
         return my_env
 
     def __call__(self, parameters, config):
@@ -123,10 +127,12 @@ class SeisSol(umbridge.Model):
 
         interpolatorRef = sp_int.interp1d(ref[:,0], ref[:,1])
 
-        mR_interpolated = interpolator(times_interp)
+        mR_interpolated = interpolatorRef(times_interp)
 
         print(mD_interpolated - mR_interpolated)
-        return mD_interpolated - mR_interpolated
+
+        m_diff = mD_interpolated - mR_interpolated
+        return [m_diff.tolist()]
 
     def supports_evaluate(self):
         return True
