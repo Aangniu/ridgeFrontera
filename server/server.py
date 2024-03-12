@@ -3,7 +3,7 @@ import jinja2
 
 import time
 
-# import misfits_kath
+import misfits_kath as msf
 import scipy.interpolate as sp_int
 
 import numpy as np
@@ -41,7 +41,7 @@ class SeisSol(umbridge.Model):
         return [1]
 
     def get_output_sizes(self, config):
-        return [80]
+        return [30]
 
     def prepare_filesystem(self, parameters, config):
         param_conf_string = str((parameters, config)).encode("utf-8")
@@ -103,8 +103,8 @@ class SeisSol(umbridge.Model):
         print("passed the part for launching seissol....")
         result.check_returncode()
 
+        #=================MomentRate====================
         # Postprocessing to get moment rate
-
         data = pd.read_csv(os.path.join(run_id, "ridgecrest-energy.csv"),sep=',')
 
         idMoment, = np.where(data["variable"] == "seismic_moment")
@@ -122,7 +122,6 @@ class SeisSol(umbridge.Model):
         mD_interpolated = interpolator(times_interp)
 
         ## Reference
-
         ref = np.load(os.path.join("ref", "MT1_Moment_rate_array.npy"))
 
         interpolatorRef = sp_int.interp1d(ref[:,0], ref[:,1])
@@ -132,7 +131,38 @@ class SeisSol(umbridge.Model):
         print(mD_interpolated - mR_interpolated)
 
         m_diff = mD_interpolated - mR_interpolated
-        return [m_diff.tolist()]
+
+        #=================GPS====================
+        prefix = 'ridgecrest'
+        directory = run_id
+
+        ref_GPS = np.load(os.path.join("ref", "dataGPSForCompare.npy"))
+
+        rec_comps = ['v1','v2','v3']
+
+        nRec = 10
+
+        diffNorms = []
+        for i_s in range(nRec):
+            for i_c in range(3):
+                sim_result = msf.read_receiver(
+                    msf.find_receiver(directory,prefix,i_s+1))
+                dt = sim_result['Time'][1] - sim_result['Time'][0]
+                displace = np.cumsum(sim_result[ rec_comps[i_c] ])*dt
+
+                dispRef = ref_GPS[i_c][i_s][0:21]
+
+                # Interpoloate simulation results to compare with Ref
+                times_interp = np.linspace(0.001,19.999,21)
+                interpolatorGPS = sp_int.interp1d(sim_result['Time'], displace)
+
+                dispSim_interpolated = interpolatorGPS(times_interp)
+
+                diffGPS = dispSim_interpolated - dispRef
+                diffNorms.append(np.linalg.norm(diffGPS))
+
+        # return [m_diff.tolist()]
+        return [diffNorms]
 
     def supports_evaluate(self):
         return True
