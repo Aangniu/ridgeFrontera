@@ -11,6 +11,9 @@ export PATH=/home/tools/bin:$PATH
 export PKG_CONFIG_PATH=/home/tools/lib/pkgconfig:$PKG_CONFIG_PATH
 cd /tmp
 
+apt update -y
+apt install gdb -y
+
 echo "Build HDF5"
 wget --progress=bar:force:noscroll https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
 tar -xf hdf5-1.10.11.tar.bz2 && cd hdf5-1.10.11
@@ -39,19 +42,22 @@ mkdir -p build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/home/tools
 make -j$(nproc) install && cd /tmp
 
 echo "Build libxsmm"
+#rm -rf libxsmm
 git clone https://github.com/hfp/libxsmm.git
 cd libxsmm && git checkout 1.16.1
 make -j$(nproc) generator
 cp bin/libxsmm_gemm_generator /home/tools/bin && cd /tmp
 
 echo "Build ASAGI"
+#rm -rf ASAGI
 git clone https://github.com/TUM-I5/ASAGI.git
 cd ASAGI && git submodule update --init
 mkdir build && cd build
-CC=mpicc CXX=mpicxx cmake .. -DCMAKE_INSTALL_PREFIX=/home/tools -DSHARED_LIB=off -DSTATIC_LIB=on -DNONUMA=on -DCMAKE_PREFIX_PATH=/home/tools
+CC=mpicc CXX=mpicxx cmake .. -DCMAKE_INSTALL_PREFIX=/home/tools -DSHARED_LIB=off -DSTATIC_LIB=on -DNONUMA=off -DCMAKE_PREFIX_PATH=/home/tools
 make -j$(nproc) && make install && cd /tmp
 
 echo "Build ImpalaJIT"
+#rm -rf ImpalaJIT
 git clone https://github.com/uphoffc/ImpalaJIT.git
 cd ImpalaJIT && mkdir build && cd build
 CXXFLAGS="-fPIE" cmake .. -DCMAKE_INSTALL_PREFIX=/home/tools && make -j $(nproc) install && cd /tmp
@@ -63,6 +69,7 @@ make linux CC=mpicc && make local
 cp -r install/* /home/tools && cd .. && cd /tmp
 
 echo "Build easi"
+#rm -rf easi
 git clone https://github.com/SeisSol/easi
 cd easi && mkdir build && cd build
 CC=mpicc CXX=mpicxx cmake .. -DEASICUBE=OFF -DLUA=ON -DCMAKE_PREFIX_PATH=/home/tools -DCMAKE_INSTALL_PREFIX=/home/tools -DASAGI=ON -DIMPALAJIT=ON ..
@@ -81,11 +88,13 @@ export NETCDF_DIR=/home/tools
 export PARMETIS_DIR=/home/tools
 
 cd /home/tools
-git clone -b zihua/Ridgecrest https://github.com/SeisSol/SeisSol.git
+#rm -rf SeisSol
+#git clone -b zihua/Ridgecrest https://github.com/SeisSol/SeisSol.git
+git clone https://github.com/SeisSol/SeisSol.git
 cd SeisSol && git submodule update --init
 for o in 4; do
   mkdir -p build_cpu && cd build_cpu
-  CC=mpicc CXX=mpicxx cmake .. -DCMAKE_PREFIX_PATH=/home/tools -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DASAGI=ON -DNETCDF=ON -DORDER=${o} -DNUMBER_OF_MECHANISMS=3 -DEQUATIONS="viscoelastic2" -DHOST_ARCH=skx -DCMAKE_BUILD_TYPE=Release -DPRECISION=double
+  CC=mpicc CXX=mpicxx cmake .. -DCMAKE_PREFIX_PATH=/home/tools -DGEMM_TOOLS_LIST=auto -DASAGI=ON -DNETCDF=ON -DORDER=${o} -DNUMBER_OF_MECHANISMS=3 -DEQUATIONS="viscoelastic2" -DHOST_ARCH=skx -DCMAKE_BUILD_TYPE=Debug -DPRECISION=double
   make -j$(nproc) && cp SeisSol* /home/tools/bin
   cd ..
 done
