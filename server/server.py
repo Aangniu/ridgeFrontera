@@ -107,8 +107,8 @@ class SeisSol(umbridge.Model):
         print("passed the part for launching seissol....")
         result.check_returncode()
 
+        #=================MomentRate====================
         # Postprocessing to get moment rate
-
         data = pd.read_csv(os.path.join(run_id, "ridgecrest-energy.csv"),sep=',')
 
         idMoment, = np.where(data["variable"] == "seismic_moment")
@@ -126,7 +126,6 @@ class SeisSol(umbridge.Model):
         mD_interpolated = interpolator(times_interp)
 
         ## Reference
-
         ref = np.load(os.path.join("ref", "MT1_Moment_rate_array.npy"))
 
         interpolatorRef = sp_int.interp1d(ref[:,0], ref[:,1])
@@ -138,7 +137,6 @@ class SeisSol(umbridge.Model):
         print(mD_interpolated - mR_interpolated)
 
         m_diff = mD_interpolated - mR_interpolated
-        
         #=================GPS====================
         prefix = 'ridgecrest'
         directory = run_id
