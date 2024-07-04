@@ -2,6 +2,7 @@ import hashlib
 import jinja2
 
 import time
+from datetime import datetime
 
 import misfits_kath as msf
 import scipy.interpolate as sp_int
@@ -45,7 +46,8 @@ class SeisSol(umbridge.Model):
         return [1]
 
     def prepare_filesystem(self, parameters, config):
-        submission_time = time.ctime(time.time())
+        # submission_time = time.ctime(time.time())
+        submission_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         param_conf_string = str((parameters, config,submission_time)).encode("utf-8")
         print(param_conf_string)
 
