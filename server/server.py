@@ -102,12 +102,29 @@ class SeisSol(umbridge.Model):
         command = seissol_command(run_id, self.ranks, config["order"])
         print(command)
         my_env = self.prepare_env()
-        sys.stdout.flush()
         print("reached the part for launching seissol....")
+        sys.stdout.flush()
         subprocess.run("cat $MACHINE_FILE", shell=True)
         result = subprocess.run(command, shell=True, env=my_env)
         print("passed the part for launching seissol....")
-        result.check_returncode()
+        #result.check_returncode()
+        print('args:', result.args)
+        print('returncode:', result.returncode)
+        sys.stdout.flush()
+
+        errorCount = 0
+        while result.returncode > 0:
+          print(f"SeisSol failed with input: {parameters[0]}, re-run with the same parameters for {errorCount+1} times...")
+          sys.stdout.flush()
+          result = subprocess.run(command, shell=True, env=my_env)
+          print('args:', result.args)
+          print('returncode:', result.returncode)
+          sys.stdout.flush()
+          errorCount += 1
+          if errorCount >= 5:
+            print(f"SeisSol failed with input: {parameters[0]} for {errorCount} times, return an extremely small log-likelihood (-5e2) to the client!")
+            sys.stdout.flush()
+            return [[-5e2]]
 
         #=================MomentRate====================
         # Postprocessing to get moment rate
