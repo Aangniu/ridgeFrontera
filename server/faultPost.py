@@ -1,7 +1,6 @@
 import trimesh
 import seissolxdmf
 import numpy as np
-import argparse
 from scipy import spatial
 import matplotlib.pylab as plt
 from scipy import ndimage as nd
@@ -138,12 +137,6 @@ def compareOffset(faultFile, event = 'foreshock'):
         distance_from_epicenter, intersection_node, 0
     )
 
-    # fig = plt.figure(figsize=(14, 8))
-    fig = plt.figure(figsize=(12, 7))
-    ax = fig.add_subplot(111)
-    prepare_plot(fig, ax)
-    plt.plot(distance_from_epicenter_no_inters, np.abs(Sls[idsf]), "r")
-
     if args.event[0] == "foreshock":
         loaded = np.load("ref/antoine_fore.npz")
         dist = loaded['dist1'][loaded['dist1']<-1.5][::-1]
@@ -157,10 +150,5 @@ def compareOffset(faultFile, event = 'foreshock'):
 
     interpolatorOffset = sp_int.interp1d(dist, offset)
     offset_interpolated = interpolatorOffset(distance_from_epicenter_no_inters)
-
-    plt.plot(dist, offset,'--')
-    plt.plot(distance_from_epicenter_no_inters, offset_interpolated)
-
-    plt.show()
 
     return offset_interpolated - np.abs(Sls[idsf])
