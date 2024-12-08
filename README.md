@@ -1,5 +1,5 @@
 # ridgeFrontera
-model server on frontera for Umbridge
+model server on Frontera, TACC, for Umbridge.
 
 # How to use it?
 1 Download the [input files](https://syncandshare.lrz.de/getlink/fiXv8QwkPAGPANcEXuAr4R/ridgecrest2D.zip) for execution of the Ridgecrest simulation with [SeisSol](https://github.com/SeisSol/SeisSol).
