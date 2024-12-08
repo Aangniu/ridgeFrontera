@@ -8,6 +8,6 @@ model server on frontera for Umbridge
 
 3 Pull and compile a [SeisSol](https://github.com/SeisSol/SeisSol) executable to your target cluster. The documentation for how to compile can be found [here](https://seissol.readthedocs.io/en/latest/). Save the executable to anywhere and remember the path `path/to/seissol_executable`.
 
-3 The python script in `server/server2D.py` provides the setup for a server that expose an HTTP protocol to the [Umbridge](https://um-bridge-benchmarks.readthedocs.io/en/docs/) load balancer. Replace the `path/to/seissol_executable` to the `seissol_command()` function in this python script. This server will then take care of managing the file system for postprocessing output and send the information to Umridge.
+4 The python script in `server/server2D.py` provides the setup for a server that expose an HTTP protocol to the [Umbridge](https://um-bridge-benchmarks.readthedocs.io/en/docs/) load balancer. Replace the `path/to/seissol_executable` to the `seissol_command()` function in this python script. This server will then take care of managing the file system for postprocessing output and send the information to Umridge.
 
-4 Ready to go :)
+5 Ready to go :)
