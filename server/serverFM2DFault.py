@@ -41,7 +41,7 @@ class SeisSol(umbridge.Model):
         super().__init__("forward")
 
     def get_input_sizes(self, config):
-        return [2]
+        return [4]
 
     def get_output_sizes(self, config):
         return [1]
